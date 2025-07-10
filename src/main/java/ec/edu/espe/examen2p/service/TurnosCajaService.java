@@ -1,9 +1,7 @@
 package ec.edu.espe.examen2p.service;
 
 import ec.edu.espe.examen2p.controller.dto.TransaccionesTurnoDTO;
-import ec.edu.espe.examen2p.controller.dto.TurnosCajaDTO;
 import ec.edu.espe.examen2p.controller.mapper.TransaccionesTurnoMapper;
-import ec.edu.espe.examen2p.controller.mapper.TurnosCajaMapper;
 import ec.edu.espe.examen2p.exception.ValidacionException;
 import ec.edu.espe.examen2p.model.TransaccionesTurno;
 import ec.edu.espe.examen2p.model.TurnosCaja;
@@ -19,7 +17,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class TurnosCajaService {
@@ -28,16 +25,13 @@ public class TurnosCajaService {
 
     private final TurnosCajaRepository turnosCajaRepository;
     private final TransaccionesTurnoRepository transaccionesTurnoRepository;
-    private final TurnosCajaMapper turnosCajaMapper;
     private final TransaccionesTurnoMapper transaccionesTurnoMapper;
 
     public TurnosCajaService(TurnosCajaRepository turnosCajaRepository,
                             TransaccionesTurnoRepository transaccionesTurnoRepository,
-                            TurnosCajaMapper turnosCajaMapper,
                             TransaccionesTurnoMapper transaccionesTurnoMapper) {
         this.turnosCajaRepository = turnosCajaRepository;
         this.transaccionesTurnoRepository = transaccionesTurnoRepository;
-        this.turnosCajaMapper = turnosCajaMapper;
         this.transaccionesTurnoMapper = transaccionesTurnoMapper;
     }
 
@@ -45,6 +39,11 @@ public class TurnosCajaService {
     public void abrirTurno(TurnosCaja turno, List<TransaccionesTurno> transacciones, Map<Denominaciones, Integer> billetesRecibidos) {
         try {
             log.info("Intentando abrir turno para caja: {}", turno.getCodigoCaja());
+
+            // Validar que se registren billetes de la bóveda
+            if (billetesRecibidos == null || billetesRecibidos.isEmpty()) {
+                throw new ValidacionException("Debe registrar los billetes recibidos de la bóveda del banco.");
+            }
 
             String codigoTurno = generarCodigoTurno(turno.getCodigoCaja(), turno.getCodigoCajero());
             turno.setCodigoTurno(codigoTurno);
@@ -54,8 +53,9 @@ public class TurnosCajaService {
                 throw new ValidacionException("El turno ya existe.");
             }
 
-            turno.setTransacciones(transacciones);
+            turno.setTransacciones(transacciones != null ? transacciones : List.of());
             turno.setBilletesRecibidos(billetesRecibidos);
+            turno.setEstado("ABIERTO");
             turnosCajaRepository.save(turno);
 
             log.info("Turno abierto exitosamente con código: {}", codigoTurno);
@@ -69,6 +69,12 @@ public class TurnosCajaService {
     public void registrarTransaccion(TransaccionesTurno transaccion, Map<Denominaciones, Integer> billetes) {
         try {
             log.info("Registrando transacción: {}", transaccion);
+            
+            // Validar que se registren billetes en la transacción
+            if (billetes == null || billetes.isEmpty()) {
+                throw new ValidacionException("Debe registrar la cantidad de billetes y denominaciones en la transacción.");
+            }
+            
             transaccion.setBilletes(billetes);
             transaccionesTurnoRepository.save(transaccion);
             log.info("Transacción registrada exitosamente.");
@@ -79,44 +85,38 @@ public class TurnosCajaService {
     }
 
     @Transactional
-    public void cerrarTurno(String codigoTurno, List<?> transacciones, Map<Denominaciones, Integer> billetesFinales) {
+    public void cerrarTurno(String codigoTurno, List<TransaccionesTurnoDTO> transaccionesDto, Map<Denominaciones, Integer> billetesFinales) {
         try {
             log.info("Intentando cerrar turno con código: {}", codigoTurno);
 
             TurnosCaja turno = turnosCajaRepository.findByCodigoTurno(codigoTurno)
                     .orElseThrow(() -> new ValidacionException("Turno no encontrado."));
 
-            List<TransaccionesTurno> transaccionesFinales;
-
-            if (!transacciones.isEmpty()) {
-                if (transacciones.get(0) instanceof TransaccionesTurnoDTO) {
-                    List<TransaccionesTurnoDTO> transaccionesDto = transacciones.stream()
-                            .filter(TransaccionesTurnoDTO.class::isInstance)
-                            .map(TransaccionesTurnoDTO.class::cast)
-                            .collect(Collectors.toList());
-                    transaccionesFinales = transaccionesDto.stream()
-                            .map(transaccionesTurnoMapper::toEntity)
-                            .toList();
-                } else {
-                    transaccionesFinales = transacciones.stream()
-                            .filter(TransaccionesTurno.class::isInstance)
-                            .map(TransaccionesTurno.class::cast)
-                            .toList();
-                }
-            } else {
-                transaccionesFinales = List.of();
+            // Validar que se ingresen billetes finales
+            if (billetesFinales == null || billetesFinales.isEmpty()) {
+                throw new ValidacionException("Debe ingresar la cantidad de billetes de cada denominación al cerrar el turno.");
             }
 
-            double montoCalculado = calcularMontoTotal(turno.getTransacciones());
-            double montoFinal = calcularMontoFinal(transaccionesFinales);
+            List<TransaccionesTurno> transaccionesFinales = transaccionesDto.stream()
+                    .map(transaccionesTurnoMapper::toEntity)
+                    .toList();
 
-            if (montoCalculado != montoFinal) {
-                log.error("Discrepancia detectada en el monto final del turno.");
-                throw new ValidacionException("Discrepancia en el monto final del turno.");
+            // Calcular monto esperado basado en billetes iniciales y transacciones
+            double montoInicialBilletes = calcularMontoFromBilletes(turno.getBilletesRecibidos());
+            double montoTransacciones = calcularMontoTotal(turno.getTransacciones());
+            double montoEsperado = montoInicialBilletes + montoTransacciones;
+            
+            // Calcular monto real de billetes finales
+            double montoFinalReal = calcularMontoFromBilletes(billetesFinales);
+
+            if (Math.abs(montoEsperado - montoFinalReal) > 0.01) { // Tolerancia para decimales
+                log.error("ALERTA: Discrepancia detectada en el monto final del turno. Esperado: {}, Real: {}", montoEsperado, montoFinalReal);
+                throw new ValidacionException("ALERTA: Discrepancia en el monto final del turno. Esperado: " + montoEsperado + ", Real: " + montoFinalReal);
             }
 
             turno.setTransacciones(transaccionesFinales);
             turno.setBilletesFinales(billetesFinales);
+            turno.setEstado("CERRADO");
             turnosCajaRepository.save(turno);
             log.info("Turno cerrado exitosamente.");
         } catch (Exception e) {
@@ -125,27 +125,7 @@ public class TurnosCajaService {
         }
     }
 
-    @Transactional
-    public void abrirTurno(TurnosCajaDTO turnoDto) {
-        try {
-            TurnosCaja turno = turnosCajaMapper.toEntity(turnoDto);
-            turnosCajaRepository.save(turno);
-        } catch (Exception e) {
-            log.error("Error al abrir turno: {}", e.getMessage());
-            throw new ValidacionException("Error al abrir turno: " + e.getMessage());
-        }
-    }
 
-    @Transactional
-    public void registrarTransaccion(TransaccionesTurnoDTO transaccionDto) {
-        try {
-            TransaccionesTurno transaccion = transaccionesTurnoMapper.toEntity(transaccionDto);
-            transaccionesTurnoRepository.save(transaccion);
-        } catch (Exception e) {
-            log.error("Error al registrar transacción: {}", e.getMessage());
-            throw new ValidacionException("Error al registrar transacción: " + e.getMessage());
-        }
-    }
 
     private String generarCodigoTurno(String codigoCaja, String codigoCajero) {
         LocalDate fechaActual = LocalDate.now();
@@ -153,14 +133,27 @@ public class TurnosCajaService {
     }
 
     private double calcularMontoTotal(List<TransaccionesTurno> transacciones) {
+        if (transacciones == null || transacciones.isEmpty()) {
+            return 0.0;
+        }
         return transacciones.stream()
-                .mapToDouble(transaccion -> Double.parseDouble(transaccion.getMontoTotal()))
+                .mapToDouble(transaccion -> {
+                    try {
+                        return Double.parseDouble(transaccion.getMontoTotal());
+                    } catch (NumberFormatException e) {
+                        log.warn("Monto inválido en transacción: {}", transaccion.getMontoTotal());
+                        return 0.0;
+                    }
+                })
                 .sum();
     }
 
-    private double calcularMontoFinal(List<TransaccionesTurno> transaccionesFinales) {
-        return transaccionesFinales.stream()
-                .mapToDouble(transaccion -> Double.parseDouble(transaccion.getMontoTotal()))
+    private double calcularMontoFromBilletes(Map<Denominaciones, Integer> billetes) {
+        if (billetes == null || billetes.isEmpty()) {
+            return 0.0;
+        }
+        return billetes.entrySet().stream()
+                .mapToDouble(entry -> entry.getKey().getValor() * entry.getValue())
                 .sum();
     }
 }

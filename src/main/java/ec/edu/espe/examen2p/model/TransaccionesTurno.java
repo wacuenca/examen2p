@@ -1,5 +1,6 @@
 package ec.edu.espe.examen2p.model;
 
+import ec.edu.espe.examen2p.enums.Denominaciones;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
