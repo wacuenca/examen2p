@@ -39,10 +39,11 @@ public class TransaccionesTurno {
     private String estadoTransaccion; 
     private Long version;
 
+
+    // Para obtener de los enums los billetes asosiados a una transacción de 1,5,10,20,50,100,
     public Map<Denominaciones, Integer> getBilletes() {
         return billetes;
     }
-
     public void setBilletes(Map<Denominaciones, Integer> billetes) {
         this.billetes = billetes;
     }

@@ -43,6 +43,8 @@ public class TurnosCaja {
 
     private Long version;
 
+
+    // Mappeo ara manejar los billetes recibidos y finales en el turno
     private Map<Denominaciones, Integer> billetesRecibidos;
     private Map<Denominaciones, Integer> billetesFinales;
 
