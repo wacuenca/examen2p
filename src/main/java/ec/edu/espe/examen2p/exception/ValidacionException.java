@@ -10,4 +10,9 @@ public class ValidacionException extends ClienteException {
     public ValidacionException(String mensaje, Integer codigoError) {
         super(mensaje, codigoError);
     }
+
+    public ValidacionException(String mensaje, Throwable causa) {
+        super(mensaje, CODIGO_ERROR_DEFAULT);
+        initCause(causa);
+    }
 }

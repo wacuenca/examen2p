@@ -6,6 +6,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import jakarta.persistence.Id;
 import java.util.List;
+import java.util.Map;
 import lombok.*;
 
 @Getter
@@ -40,4 +41,23 @@ public class TurnosCaja {
     private List<TransaccionesTurno> transacciones;
 
     private Long version;
+
+    private Map<Denominaciones, Integer> billetesRecibidos;
+    private Map<Denominaciones, Integer> billetesFinales;
+
+    public Map<Denominaciones, Integer> getBilletesRecibidos() {
+        return billetesRecibidos;
+    }
+
+    public void setBilletesRecibidos(Map<Denominaciones, Integer> billetesRecibidos) {
+        this.billetesRecibidos = billetesRecibidos;
+    }
+
+    public Map<Denominaciones, Integer> getBilletesFinales() {
+        return billetesFinales;
+    }
+
+    public void setBilletesFinales(Map<Denominaciones, Integer> billetesFinales) {
+        this.billetesFinales = billetesFinales;
+    }
 }

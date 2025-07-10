@@ -7,7 +7,8 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.util.Date;
+import java.util.Map;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -31,10 +32,17 @@ public class TransaccionesTurno {
     @Indexed
     private String tipoTransaccion; 
     private String montoTotal;
-    private String denominaciones; 
+    private Map<Denominaciones, Integer> billetes; 
 
     private String descripcion;
     private String estadoTransaccion; 
     private Long version;
 
+    public Map<Denominaciones, Integer> getBilletes() {
+        return billetes;
+    }
+
+    public void setBilletes(Map<Denominaciones, Integer> billetes) {
+        this.billetes = billetes;
+    }
 }

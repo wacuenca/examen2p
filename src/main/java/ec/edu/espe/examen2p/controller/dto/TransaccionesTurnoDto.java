@@ -4,7 +4,7 @@ import lombok.Data;
 import java.time.LocalDate;
 
 @Data
-public class TransaccionesTurnoDto {
+public class TransaccionesTurnoDTO {
     private String id;
     private String codigoCaja;
     private String codigoCajero;

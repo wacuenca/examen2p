@@ -1,10 +1,12 @@
 package ec.edu.espe.examen2p.controller.dto;
 
+import ec.edu.espe.examen2p.controller.dto.TransaccionesTurnoDTO;
+
 import lombok.Data;
 import java.util.List;
 
 @Data
-public class TurnosCajaDto {
+public class TurnosCajaDTO {
     private String id;
     private String codigoCaja;
     private String codigoCajero;
@@ -17,6 +19,6 @@ public class TurnosCajaDto {
     private String duracionTurno;
     private Integer totalTransacciones;
     private String montoTotalTransacciones;
-    private List<TransaccionesTurnoDto> transacciones;
+    private List<TransaccionesTurnoDTO> transacciones;
     private Long version;
 }
